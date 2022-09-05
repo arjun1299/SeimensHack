@@ -1,8 +1,8 @@
 int UVOUT = A0; //Output from the sensor
 int REF_3V3 = A1; //3.3V power on the Arduino board
 int CAP_PROXY = 3; 
-float GLASS_THRESHOLD = 0.45;
-float OBJ_THRESHOLD=0.8; 
+float GLASS_THRESHOLD = 0.6;
+float OBJ_THRESHOLD=1; 
 int DEPTH_PIN = 4;
 
 void setup()
@@ -51,7 +51,7 @@ int glassFlag =0;
   }
 
   capFlag=digitalRead(CAP_PROXY);
-  depthFlag = digitalRead(DEPTH_PIN));
+  depthFlag = digitalRead(DEPTH_PIN);
 
 
   
@@ -68,13 +68,13 @@ int glassFlag =0;
           
   
   
-  /*
+  
   Serial.print(" UV Intensity (mW/cm^2): ");
   Serial.print(uvIntensity);
 
   Serial.print("Capacitive sensor:");
   Serial.print(digitalRead(CAP_PROXY));
-  */
+
   Serial.print("Depth sensor:");
   Serial.print(digitalRead(DEPTH_PIN));
   Serial.println();

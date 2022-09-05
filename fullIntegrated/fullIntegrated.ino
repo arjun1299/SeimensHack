@@ -19,18 +19,19 @@
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+int PROXY= 9;
+int UVOUT = A0; //Output from the sensor
+int REF_3V3 = A1; //3.3V power on the Arduino board
+int CAP_PROXY = 3; 
+float GLASS_THRESHOLD = 0.7;
+float OBJ_THRESHOLD=1; 
+int DEPTH_PIN = 4;
+int lidMotor=0;
+int plasticMotor=1;
+int glassMotor=2;
 
-// called this way, it uses the default address 0x40
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-// you can also call it with a different address you want
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
-// you can also call it with a different address and I2C interface
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
 
-// Depending on your servo make, the pulse width min and max may vary, you 
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
 #define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
 #define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
 #define USMIN  600 // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
@@ -43,6 +44,12 @@ uint8_t servonum = 0;
 void setup() {
   Serial.begin(9600);
   Serial.println("8 channel Servo test!");
+
+  pinMode(UVOUT, INPUT);
+  pinMode(REF_3V3, INPUT);
+  pinMode(CAP_PROXY, INPUT);  
+  pinMode(DEPTH_PIN, INPUT_PULLUP);
+  pinMode(PROXY,INPUT);
 
   pwm.begin();
   /*
@@ -64,32 +71,130 @@ void setup() {
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
 
-  delay(10);
-  
-}
+/*
+      pwm.setPWM(lidMotor,0,SERVOMIN);
+      delay(500);
+      pwm.setPWM(lidMotor,0,SERVOMIN+150);
+      delay(500);
 
-// You can use this function if you'd like to set the pulse length in seconds
-// e.g. setServoPulse(0, 0.001) is a ~1 millisecond pulse width. It's not precise!
-void setServoPulse(uint8_t n, double pulse) {
-  double pulselength;
+      pwm.setPWM(plasticMotor,0,SERVOMIN-35);
+      delay(500);
+      pwm.setPWM(plasticMotor,0,SERVOMIN+150);
+      delay(500);
+
+      pwm.setPWM(glassMotor,0,SERVOMIN);
+      delay(500);
+      pwm.setPWM(glassMotor,0,SERVOMIN+150);
+      delay(500);
+*/
+      
+  delay(10);
+
   
-  pulselength = 1000000;   // 1,000,000 us per second
-  pulselength /= SERVO_FREQ;   // Analog servos run at ~60 Hz updates
-  Serial.print(pulselength); Serial.println(" us per period"); 
-  pulselength /= 4096;  // 12 bits of resolution
-  Serial.print(pulselength); Serial.println(" us per bit"); 
-  pulse *= 1000000;  // convert input seconds to us
-  pulse /= pulselength;
-  Serial.println(pulse);
-  pwm.setPWM(n, 0, pulse);
+  pwm.setPWM(lidMotor,0,SERVOMIN);
+  pwm.setPWM(glassMotor,0,SERVOMIN+10);
+  pwm.setPWM(plasticMotor,0,SERVOMIN-35);  
 }
 
 void loop() {
-  pwm.setPWM(0,0,SERVOMIN);
-  delay(500);
-        pwm.setPWM(0,0,SERVOMIN+150);
-  delay(500);
 
+if(!digitalRead(PROXY))
+{
+    int uvLevel = averageAnalogRead(UVOUT);
+  int refLevel = averageAnalogRead(REF_3V3);
+  
+  //Use the 3.3V power pin as a reference to get a very accurate output value from sensor
+  float outputVoltage = 3.3 / refLevel * uvLevel;
+  
+  float uvIntensity = mapfloat(outputVoltage, 0.99, 2.9, 0.0, 15.0);
+/*
+  Serial.print("MP8511 output: ");
+  Serial.print(uvLevel);
+
+  Serial.print(" MP8511 voltage: ");
+  Serial.print(outputVoltage);
+*/
+int uvFlag=0;
+int capFlag=0;
+int depthFlag=0;
+int materialFlag=2;//0 - Plastic; 1- Glass; 2- misc
+int glassFlag =0;
+  if(uvIntensity>GLASS_THRESHOLD)// && uvIntensity<OBJ_THRESHOLD)
+  {
+      Serial.print("Glass detected");
+      uvFlag = 1;
+      }
+
+  else if(uvIntensity<GLASS_THRESHOLD)
+  {
+      Serial.print("Plastic detected");
+      uvFlag=0;
+      
+  }
+
+  capFlag=digitalRead(CAP_PROXY);
+  depthFlag = !digitalRead(DEPTH_PIN);
+
+
+  
+  if(uvFlag==0 && capFlag == 0 && depthFlag == 0)
+    materialFlag=0;
+  else if(uvFlag==0 && capFlag == 1 && depthFlag == 0)
+    materialFlag=2;
+  else if(uvFlag==0 && capFlag == 1 && depthFlag == 1)
+    materialFlag=0;
+  else if(uvFlag==1 && capFlag == 1 && depthFlag == 0)
+    materialFlag=1;
+  else if(uvFlag==1 && capFlag == 1 && depthFlag == 1)
+    materialFlag=1;
+
+  Serial.println(materialFlag);
+  
+  switch (materialFlag)
+  {
+    case 1:
+      pwm.setPWM(plasticMotor,0,SERVOMIN-35);
+      delay(500);
+      pwm.setPWM(plasticMotor,0,SERVOMIN-100);
+      delay(500);
+      break;
+   case 2:
+      pwm.setPWM(plasticMotor,0,SERVOMIN-35);
+      delay(500);
+      pwm.setPWM(plasticMotor,0,SERVOMIN-100);
+      delay(500);
+
+      pwm.setPWM(glassMotor,0,SERVOMIN+10);
+      delay(500);
+      pwm.setPWM(glassMotor,0,SERVOMIN-75);
+      delay(500);
+      
+      break; 
+    }
+  
+  
+  /*
+  Serial.print(" UV Intensity (mW/cm^2): ");
+  Serial.print(uvIntensity);
+
+  Serial.print("Capacitive sensor:");
+  Serial.print(digitalRead(CAP_PROXY));
+  */
+
+  //Serial.print("Depth sensor:");
+  //Serial.print(digitalRead(DEPTH_PIN));
+  //Serial.println();
+
+  pwm.setPWM(lidMotor,0,SERVOMIN+150);
+  delay(5000);
+
+}
+  pwm.setPWM(lidMotor,0,SERVOMIN);
+  delay(500);
+  pwm.setPWM(glassMotor,0,SERVOMIN+10);
+  delay(500);
+  pwm.setPWM(plasticMotor,0,SERVOMIN-35);
+  delay(500); 
   // Drive each servo one at a time using setPWM()
   /*Serial.println(servonum);
   for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
@@ -133,4 +238,26 @@ delay(500);
 
   servonum++;
   if (servonum > 7) servonum = 0; // Testing the first 8 servo channels*/
+}
+
+
+//Takes an average of readings on a given pin
+//Returns the average
+int averageAnalogRead(int pinToRead)
+{
+  byte numberOfReadings = 8;
+  unsigned int runningValue = 0; 
+
+  for(int x = 0 ; x < numberOfReadings ; x++)
+    runningValue += analogRead(pinToRead);
+  runningValue /= numberOfReadings;
+
+  return(runningValue);  
+}
+
+//The Arduino Map function but for floats
+//From: http://forum.arduino.cc/index.php?topic=3922.0
+float mapfloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }

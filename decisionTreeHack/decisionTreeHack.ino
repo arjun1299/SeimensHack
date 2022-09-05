@@ -18,6 +18,7 @@ void setup()
 
 void loop()
 {
+  
   int uvLevel = averageAnalogRead(UVOUT);
   int refLevel = averageAnalogRead(REF_3V3);
   
@@ -43,12 +44,15 @@ int glassFlag =0;
       uvFlag = 1;
       }
 
-  else if(uvIntensity<GLASS_THRESHOLD)
+  else if(uvIntensity<GLASS_THRESHOLD && uvIntensity>0)
   {
       Serial.print("Plastic detected");
       uvFlag=0;
       
   }
+
+  else if(uvIntensity<0)
+    uvFlag=-1;
 
   capFlag=digitalRead(CAP_PROXY);
   depthFlag = digitalRead(DEPTH_PIN));
@@ -66,7 +70,11 @@ int glassFlag =0;
   else if(uvFlag==1 && capFlag == 1 && depthFlag == 1)
     materialFlag=1;
           
-  
+  else if(uvFlag == -1 && capFlag == 1)
+    materialFlag=1;
+    
+  else if(uvFlag == -1 && capFlag == 0)
+    materialFlag=0;
   
   /*
   Serial.print(" UV Intensity (mW/cm^2): ");

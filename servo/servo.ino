@@ -83,12 +83,14 @@ void setServoPulse(uint8_t n, double pulse) {
   Serial.println(pulse);
   pwm.setPWM(n, 0, pulse);
 }
-
+//Main is at home , angle is min+150
+//Plastic is min-35 @ home min-100
+//Glass CLosed is min+10, open is min-75
 void loop() {
-  pwm.setPWM(0,0,SERVOMIN);
-  delay(500);
-        pwm.setPWM(0,0,SERVOMIN+150);
-  delay(500);
+  pwm.setPWM(1,0,SERVOMIN-100);
+  delay(3000);
+       //pwm.setPWM(0,0,SERVOMIN+125);
+  //delay(2000);
 
   // Drive each servo one at a time using setPWM()
   /*Serial.println(servonum);
